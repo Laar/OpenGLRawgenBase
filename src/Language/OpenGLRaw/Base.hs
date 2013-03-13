@@ -2,9 +2,10 @@ module Language.OpenGLRaw.Base (
     GLName, FType(..),
 
     Category(..), Extension(..),
+    showCategory,
 ) where
 
-import Text.OpenGL.Spec(Category(..), Extension(..))
+import Text.OpenGL.Spec(Category(..), Extension(..), showCategory)
 
 -- | The original name of something from OpenGL (thus the name as used in the
 -- specification).
