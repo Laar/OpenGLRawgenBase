@@ -16,6 +16,7 @@ library
     Language.OpenGLRaw.Base
   -- other-modules:
   build-depends:
-    base >= 4
+    base >= 4,
+    opengl-api
   ghc-options: -Wall -O2
   hs-source-dirs: src
