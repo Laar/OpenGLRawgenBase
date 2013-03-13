@@ -16,7 +16,8 @@ library
   -- other-modules:
   build-depends:
     base ==4.6.*,
-    containers
+    containers,
+    OpenGLRawgenBase
   ghc-options:
     -Wall -O2
   hs-source-dirs: src
