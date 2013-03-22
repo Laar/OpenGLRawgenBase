@@ -14,12 +14,14 @@ cabal-version:       >=1.8
 library
   exposed-modules:
     Language.OpenGLRaw.Interface.Types
+    Language.OpenGLRaw.Interface.Xml
   -- other-modules:
   build-depends:
     base ==4.6.*,
     containers,
     OpenGLRawgenBase,
-    haskell-src-exts
+    haskell-src-exts,
+    xml
   ghc-options:
     -Wall -O2
   hs-source-dirs: src

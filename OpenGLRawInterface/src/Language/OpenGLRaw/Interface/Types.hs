@@ -3,11 +3,14 @@ module Language.OpenGLRaw.Interface.Types (
     ModuleI(..), ModuleType(..),
     Major, Minor, Deprecated,
     FuncI(..), EnumI(..), Reexport(..),
+
+    -- * Convenience reexport
+    ModuleName(..),
 ) where
 
 import qualified Data.Set as S
 
-import Language.Haskell.Exts.Syntax(ModuleName)
+import Language.Haskell.Exts.Syntax(ModuleName(..))
 import Language.OpenGLRaw.Base
 
 type HsName = String
@@ -32,7 +35,7 @@ type Deprecated = Bool
 
 data ModuleType
     = CoreInterface Major Minor Deprecated
-    | VendorMod     Extension String Deprecated
+    | ExtensionMod  Extension String Deprecated
     | TopLevelGroup
     | VendorGroup   Extension
     | Internal
