@@ -11,7 +11,7 @@ import Language.OpenGLRaw.Interface.Xml
 
 writePackage :: FilePath -> OpenGLRawI -> IO ()
 writePackage path package =
-    let path' = path </> "package" <.> "hs"
+    let path' = path </> "package" <.> "xml"
         xmlPackage = toGLXml package
     in safeWriteFile path' $ showTopElement xmlPackage
 
