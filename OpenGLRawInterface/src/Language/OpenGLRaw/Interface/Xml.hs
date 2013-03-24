@@ -77,6 +77,7 @@ instance GLXml ModuleType where
                 ]
         TopLevelGroup       -> node "toplevelgroup" ()
         VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ show vendor]
+        Compatibility       -> node "compatibility" ()
         Internal            -> node "internal" ()
     fromGLXml e = case elName e of
         "core"          ->
@@ -91,6 +92,7 @@ instance GLXml ModuleType where
             <*> findReadAttr "deprecated" e
         "toplevelgroup" -> Just TopLevelGroup
         "vendorgroup"   -> VendorGroup <$> findReadAttr "vendor" e
+        "compatibility" -> Just Compatibility
         "internal"      -> Just Internal
         _               -> Nothing
 

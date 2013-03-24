@@ -29,18 +29,6 @@ data ModuleI
     , modReExports :: S.Set Reexport
     } deriving (Show)
 
-type Major = Int
-type Minor = Int
-type Deprecated = Bool
-
-data ModuleType
-    = CoreInterface Major Minor Deprecated
-    | ExtensionMod  Extension String Deprecated
-    | TopLevelGroup
-    | VendorGroup   Extension
-    | Internal
-    deriving(Eq, Ord, Show)
-
 data FuncI = FuncI GLName HsName FType [FType]
     deriving (Eq, Ord, Show)
 data EnumI = EnumI GLName HsName ValueType
