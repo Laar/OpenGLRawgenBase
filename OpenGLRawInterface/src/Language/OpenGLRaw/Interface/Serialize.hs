@@ -13,13 +13,13 @@ writePackage :: FilePath -> OpenGLRawI -> IO ()
 writePackage path package =
     let path' = path </> "package" <.> "xml"
         xmlPackage = toGLXml package
-    in safeWriteFile path' $ showTopElement xmlPackage
+    in safeWriteFile path' $ ppTopElement xmlPackage
 
 writeModule :: FilePath -> ModuleI -> IO ()
 writeModule path m =
     let path' = path </> "modules" </> moduleNameToPath (modName m) <.> "xml"
         xmlModule = toGLXml m
-    in safeWriteFile path' $ showTopElement xmlModule
+    in safeWriteFile path' $ ppTopElement xmlModule
 
 -- copy from CodeGenerating
 -- | Converts the module name to the path of it's source code.
