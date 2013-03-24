@@ -18,7 +18,7 @@ library
     Language.OpenGLRaw.Interface.Serialize
   -- other-modules:
   build-depends:
-    base ==4.6.*,
+    base >= 4,
     containers,
     OpenGLRawgenBase,
     haskell-src-exts,
