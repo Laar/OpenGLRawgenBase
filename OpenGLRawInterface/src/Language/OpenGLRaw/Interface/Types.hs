@@ -14,8 +14,6 @@ import qualified Data.Set as S
 import Language.Haskell.Exts.Syntax(ModuleName(..))
 import Language.OpenGLRaw.Base
 
-type HsName = String
-
 data OpenGLRawI
     = OpenGLRawI
     { rawMods :: Map ModuleName ModuleType
@@ -30,9 +28,9 @@ data ModuleI
     , modReExports :: S.Set Reexport
     } deriving (Show)
 
-data FuncI = FuncI GLName HsName FType [FType]
+data FuncI = FuncI GLName HSName FType [FType]
     deriving (Eq, Ord, Show)
-data EnumI = EnumI GLName HsName ValueType
+data EnumI = EnumI GLName HSName ValueType
     deriving (Eq, Ord, Show)
 
 data Reexport

@@ -103,7 +103,7 @@ instance GLXml FuncI where
     toGLXml (FuncI gln hsn rt ats) =
         node "function"
             ([ glNameAttr gln
-             , Attr "hsname" hsn
+             , hsNameAttr hsn
              ]
             ,[ node "return" $ toGLXml rt
              , node "arguments" $ map toGLXml ats
@@ -111,7 +111,7 @@ instance GLXml FuncI where
     fromGLXml = guardName "function" $ \e ->
         FuncI
         <$> findGLName e
-        <*> findAttr' "hsname" e
+        <*> findHSName e
         <*> singleChild' "return" e
         <*> (pure . rights . map fromGLXml $ findChildren "arguments" e)
 
@@ -119,13 +119,13 @@ instance GLXml EnumI where
     toGLXml (EnumI gln hsn vt) =
         node "enum"
             [ glNameAttr gln
-            , Attr "hsname" hsn
+            , hsNameAttr hsn
             , Attr "valuetype" $ valueTypeToString vt
             ]
     fromGLXml = guardName "enum" $ \e ->
         EnumI
         <$> findGLName e
-        <*> findAttr' "hsname" e
+        <*> findHSName e
         <*> (findAttr' "valueType" e >>= stringToValueType)
 
 valueTypeToString :: ValueType -> String
@@ -192,9 +192,13 @@ singleChildGL e = case rights . map fromGLXml $ elChildren e of
     
 findGLName :: Element -> Either String GLName
 findGLName e = GLName <$> findAttr' "glname" e
+findHSName :: Element -> Either String HSName
+findHSName e = Ident <$> findAttr' "hsname" e
 
 glNameAttr :: GLName -> Attr
 glNameAttr gln = Attr "glname" $ unGLName gln
+hsNameAttr :: HSName -> Attr
+hsNameAttr = Attr "hsname" . unHSName
 
 guardName :: QName -> (Element -> Either String t) -> Element -> Either String t
 guardName n f e = 

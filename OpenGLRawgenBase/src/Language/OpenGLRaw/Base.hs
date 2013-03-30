@@ -1,5 +1,6 @@
 module Language.OpenGLRaw.Base (
     GLName(..), FType(..), ValueType(..), ModuleType(..),
+    HSName, unHSName, Name(..),
 
     Major, Minor, Deprecated,
 
@@ -7,12 +8,21 @@ module Language.OpenGLRaw.Base (
     showCategory,
 ) where
 
+import Language.Haskell.Exts.Syntax(Name(..))
 import Text.OpenGL.Spec(Category(..), Extension(..), showCategory)
 
 -- | The original name of something from OpenGL (thus the name as used in the
 -- specification).
 newtype GLName = GLName { unGLName :: String }
     deriving (Eq, Ord, Show)
+
+-- | Simple type alias to make it clear that the name is an haskell identifier.
+type HSName = Name
+
+-- | Unwrapping the name into a string for final use.
+unHSName :: HSName -> String
+unHSName (Ident i) = i
+unHSName (Symbol s) = s
 
 data ValueType
     = EnumValue
