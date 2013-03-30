@@ -102,7 +102,7 @@ instance GLXml ModuleType where
 instance GLXml FuncI where
     toGLXml (FuncI gln hsn rt ats) =
         node "function"
-            ([ Attr "glname" gln
+            ([ glNameAttr gln
              , Attr "hsname" hsn
              ]
             ,[ node "return" $ toGLXml rt
@@ -110,7 +110,7 @@ instance GLXml FuncI where
              ])
     fromGLXml = guardName "function" $ \e ->
         FuncI
-        <$> findAttr' "glname" e
+        <$> findGLName e
         <*> findAttr' "hsname" e
         <*> singleChild' "return" e
         <*> (pure . rights . map fromGLXml $ findChildren "arguments" e)
@@ -118,13 +118,13 @@ instance GLXml FuncI where
 instance GLXml EnumI where
     toGLXml (EnumI gln hsn vt) =
         node "enum"
-            [ Attr "glname" gln
+            [ glNameAttr gln
             , Attr "hsname" hsn
             , Attr "valuetype" $ valueTypeToString vt
             ]
     fromGLXml = guardName "enum" $ \e ->
         EnumI
-        <$> findAttr' "glName" e
+        <$> findGLName e
         <*> findAttr' "hsname" e
         <*> (findAttr' "valueType" e >>= stringToValueType)
 
@@ -143,7 +143,7 @@ instance GLXml Reexport where
         SingleExport (ModuleName m) gln ->
             node "sreexport"
                 [ Attr "module" m
-                , Attr "glname" gln
+                , glNameAttr gln
                 ]
         ModuleExport (ModuleName m) ->
             node "mreexport"
@@ -152,7 +152,7 @@ instance GLXml Reexport where
     fromGLXml e = case elName e of
         "sreexport" -> SingleExport . ModuleName
                 <$> findAttr' "module" e
-                <*> findAttr' "glname" e
+                <*> findGLName e
         "mreexport" -> ModuleExport . ModuleName <$> findAttr' "module" e
         _           -> Left "No Reexport element"
 
@@ -190,6 +190,11 @@ singleChildGL e = case rights . map fromGLXml $ elChildren e of
     []  -> Left "No correct children"
     _   -> Left "More than one correct child"
     
+findGLName :: Element -> Either String GLName
+findGLName e = GLName <$> findAttr' "glname" e
+
+glNameAttr :: GLName -> Attr
+glNameAttr gln = Attr "glname" $ unGLName gln
 
 guardName :: QName -> (Element -> Either String t) -> Element -> Either String t
 guardName n f e = 

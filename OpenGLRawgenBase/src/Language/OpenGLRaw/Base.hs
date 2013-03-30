@@ -1,5 +1,5 @@
 module Language.OpenGLRaw.Base (
-    GLName, FType(..), ValueType(..), ModuleType(..),
+    GLName(..), FType(..), ValueType(..), ModuleType(..),
 
     Major, Minor, Deprecated,
 
@@ -11,7 +11,8 @@ import Text.OpenGL.Spec(Category(..), Extension(..), showCategory)
 
 -- | The original name of something from OpenGL (thus the name as used in the
 -- specification).
-type GLName = String
+newtype GLName = GLName { unGLName :: String }
+    deriving (Eq, Ord, Show)
 
 data ValueType
     = EnumValue
