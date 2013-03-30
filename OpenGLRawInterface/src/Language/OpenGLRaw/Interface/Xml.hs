@@ -140,10 +140,10 @@ stringToValueType s = case s of
 
 instance GLXml Reexport where
     toGLXml r = case r of
-        SingleExport (ModuleName m) hsn ->
+        SingleExport (ModuleName m) gln ->
             node "sreexport"
                 [ Attr "module" m
-                , Attr "value" hsn
+                , Attr "glname" gln
                 ]
         ModuleExport (ModuleName m) ->
             node "mreexport"
@@ -152,7 +152,7 @@ instance GLXml Reexport where
     fromGLXml e = case elName e of
         "sreexport" -> SingleExport . ModuleName
                 <$> findAttr' "module" e
-                <*> findAttr' "value" e
+                <*> findAttr' "glname" e
         "mreexport" -> ModuleExport . ModuleName <$> findAttr' "module" e
         _           -> Left "No Reexport element"
 

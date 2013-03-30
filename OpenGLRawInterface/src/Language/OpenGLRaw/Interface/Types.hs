@@ -36,6 +36,6 @@ data EnumI = EnumI GLName HsName ValueType
     deriving (Eq, Ord, Show)
 
 data Reexport
-    = SingleExport ModuleName HsName
+    = SingleExport ModuleName GLName
     | ModuleExport ModuleName
     deriving (Eq, Ord, Show)
