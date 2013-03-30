@@ -8,6 +8,7 @@ module Language.OpenGLRaw.Interface.Types (
     ModuleName(..),
 ) where
 
+import Data.Map (Map)
 import qualified Data.Set as S
 
 import Language.Haskell.Exts.Syntax(ModuleName(..))
@@ -17,7 +18,7 @@ type HsName = String
 
 data OpenGLRawI
     = OpenGLRawI
-    { rawMods :: S.Set ModuleName
+    { rawMods :: Map ModuleName ModuleType
     } deriving (Show)
 
 data ModuleI

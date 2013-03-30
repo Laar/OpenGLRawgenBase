@@ -7,6 +7,7 @@ module Language.OpenGLRaw.Interface.Xml (
 import Control.Applicative
 import Data.Either
 import qualified Data.Foldable as F
+import qualified Data.Map as M
 import Data.Maybe
 import Data.Monoid
 import qualified Data.Set as S
@@ -29,13 +30,15 @@ foldElements qn = node qn . F.foldMap ((:[]) . toGLXml)
 
 instance GLXml OpenGLRawI where
     toGLXml (OpenGLRawI mods) =
-        node "rawPackage" $ F.foldMap moduleElement mods
-        where moduleElement (ModuleName mname)
-                = [node "module" [Attr "name" mname]]
+        node "rawPackage" $ map moduleElement $ M.toList mods
+        where moduleElement (ModuleName mname, ty)
+                = node "module" ([Attr "name" mname], toGLXml ty)
     fromGLXml = guardName "rawPackage" $ \e ->
         OpenGLRawI
-        <$> (pure . unfoldElements "module" e
-            $ fmap (S.singleton . ModuleName) . findAttr' "name")
+        <$> (pure . unfoldElements "module" e $ \e' ->
+            M.singleton 
+            <$> fmap ModuleName (findAttr' "name" e')
+            <*> singleChildGL e')
 
 instance GLXml ModuleI where
     toGLXml (ModuleI (ModuleName mname) mType enums funcs reexports) =
@@ -180,6 +183,13 @@ singleChild q e = case findChildren q e of
 
 singleChild' :: GLXml t => QName -> Element -> Either String t
 singleChild' n e = singleChild n e >>= fromGLXml
+
+singleChildGL :: GLXml t => Element -> Either String t
+singleChildGL e = case rights . map fromGLXml $ elChildren e of
+    [x] -> pure x
+    []  -> Left "No correct children"
+    _   -> Left "More than one correct child"
+    
 
 guardName :: QName -> (Element -> Either String t) -> Element -> Either String t
 guardName n f e = 
