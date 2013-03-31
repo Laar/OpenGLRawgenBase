@@ -13,6 +13,7 @@ cabal-version:       >=1.8
 
 library
   exposed-modules:
+    Language.OpenGLRaw.Interface.Query
     Language.OpenGLRaw.Interface.Types
     Language.OpenGLRaw.Interface.Xml
     Language.OpenGLRaw.Interface.Serialize
@@ -24,7 +25,8 @@ library
     haskell-src-exts,
     xml,
     filepath,
-    directory
+    directory,
+    mtl
   ghc-options:
     -Wall -O2
   hs-source-dirs: src
