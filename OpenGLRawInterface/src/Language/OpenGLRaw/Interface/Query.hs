@@ -1,5 +1,6 @@
 module Language.OpenGLRaw.Interface.Query (
-    glLookup, glLookupFrom
+    glLookup, glLookupFrom,
+    ModulePart(),
 ) where
 
 import Control.Arrow((&&&))
