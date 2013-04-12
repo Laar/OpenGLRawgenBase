@@ -16,7 +16,7 @@ import qualified Data.Set as S
 import Language.OpenGLRaw.Base
 import Language.OpenGLRaw.Interface.Types
 
-class ModulePart p where
+class (Eq p, Show p) => ModulePart p where
     glName :: p         -> GLName
     index  :: ModuleI   -> S.Set p
 instance ModulePart EnumI where
