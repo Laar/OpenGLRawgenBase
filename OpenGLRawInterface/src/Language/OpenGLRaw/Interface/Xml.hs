@@ -5,6 +5,7 @@ module Language.OpenGLRaw.Interface.Xml (
 ) where
 
 import Control.Applicative
+import Control.Monad
 import Data.Either
 import qualified Data.Foldable as F
 import qualified Data.Map as M
@@ -34,11 +35,13 @@ instance GLXml OpenGLRawI where
         where moduleElement (ModuleName mname, ty)
                 = node "module" ([Attr "name" mname], toGLXml ty)
     fromGLXml = guardName "rawPackage" $ \e ->
-        OpenGLRawI
-        <$> (pure . unfoldElements "module" e $ \e' ->
-            M.singleton 
-            <$> fmap ModuleName (findAttr' "name" e')
-            <*> singleChildGL e')
+        pure . OpenGLRawI $ listed moduleElement e
+        where
+            moduleElement :: Element -> Either String (M.Map ModuleName ModuleType)
+            moduleElement = guardName "module" $ \e' ->
+                M.singleton
+                <$> fmap ModuleName (findAttr' "name" e')
+                <*> singleGLChild e'
 
 instance GLXml ModuleI where
     toGLXml (ModuleI (ModuleName mname) mType enums funcs reexports) =
@@ -47,22 +50,25 @@ instance GLXml ModuleI where
              ]
             ,[ node "moduletype" $ toGLXml mType
              , foldElements "enums" enums
-             , foldElements "funtions" funcs
+             , foldElements "functions" funcs
              , foldElements "reexports" reexports
              ])
     fromGLXml = guardName "module" $ \e ->
         ModuleI . ModuleName
         <$> findAttr' "name" e
-        <*> (singleChild "moduletype" e >>= single . elChildren)
-        <*> pure (unfoldElements' "enums"      e S.singleton)
-        <*> pure (unfoldElements' "functions"  e S.singleton)
-        <*> pure (unfoldElements' "reexports"  e S.singleton)
+        <*> (singleNamedChild "moduletype" e >>= singleGLChild)
+        <*> listedGLUnder "enums"       S.singleton e
+        <*> listedGLUnder "functions"   S.singleton e
+        <*> listedGLUnder "reexports"   S.singleton e
 
-unfoldElements :: Monoid m => QName -> Element -> (Element -> Either String m) -> m
-unfoldElements n e f = F.fold . rights . map f $ findChildren n e
+listed :: Monoid m => (Element -> Either String m) -> Element -> m
+listed f = F.fold . rights . map f . elChildren
 
-unfoldElements' :: (Monoid m, GLXml t) => QName -> Element -> (t -> m) -> m
-unfoldElements' n e f = unfoldElements n e $ fmap f . fromGLXml
+listedUnder :: Monoid m => QName -> (Element -> Either String m) -> Element -> Either String m
+listedUnder n f e = maybeNamedChild n (pure . listed f) e
+
+listedGLUnder :: (Monoid m, GLXml t) => QName -> (t -> m) -> Element -> Either String m
+listedGLUnder n f e = listedUnder n (fmap f . fromGLXml) e
 
 instance GLXml ModuleType where
     toGLXml mt = case mt of
@@ -112,8 +118,8 @@ instance GLXml FuncI where
         FuncI
         <$> findGLName e
         <*> findHSName e
-        <*> singleChild' "return" e
-        <*> (pure . rights . map fromGLXml $ findChildren "arguments" e)
+        <*> (singleNamedChild "return" e >>= oneGLChild)
+        <*> listedGLUnder "arguments" (:[]) e
 
 instance GLXml EnumI where
     toGLXml (EnumI gln hsn vt) =
@@ -126,7 +132,7 @@ instance GLXml EnumI where
         EnumI
         <$> findGLName e
         <*> findHSName e
-        <*> (findAttr' "valueType" e >>= stringToValueType)
+        <*> (findAttr' "valuetype" e >>= stringToValueType)
 
 valueTypeToString :: ValueType -> String
 valueTypeToString vt = case vt of
@@ -165,40 +171,46 @@ instance GLXml FType where
     fromGLXml e = case elName e of
         "con"   -> TCon <$> findAttr' "name" e
         "var"   -> pure TVar
-        "ptr"   -> TPtr <$> single (elChildren e)
+        "ptr"   -> TPtr <$> oneGLChild e
         "unit"  -> pure UnitTCon
         _       -> Left "No FType element"
 
-single :: GLXml t => [Element] -> Either String t
-single els = case rights $ map fromGLXml els of
-    [x] -> pure x
-    []  -> Left "No such element"
-    _   -> Left "More then on element"
-
-singleChild :: QName -> Element -> Either String Element
-singleChild q e = case findChildren q e of
-    [x] -> pure x
-    []  -> Left $ "No child with name: " ++ showQName q
-    _   -> Left $ "More then on child with name " ++ showQName q
-
-singleChild' :: GLXml t => QName -> Element -> Either String t
-singleChild' n e = singleChild n e >>= fromGLXml
-
-singleChildGL :: GLXml t => Element -> Either String t
-singleChildGL e = case rights . map fromGLXml $ elChildren e of
-    [x] -> pure x
-    []  -> Left "No correct children"
-    _   -> Left "More than one correct child"
-    
 findGLName :: Element -> Either String GLName
 findGLName e = GLName <$> findAttr' "glname" e
 findHSName :: Element -> Either String HSName
 findHSName e = Ident <$> findAttr' "hsname" e
-
 glNameAttr :: GLName -> Attr
 glNameAttr gln = Attr "glname" $ unGLName gln
 hsNameAttr :: HSName -> Attr
 hsNameAttr = Attr "hsname" . unHSName
+
+singleChild :: Element -> Either String Element
+singleChild e = case elChildren e of
+    [c] -> pure c
+    []  -> Left "No children"
+    _   -> Left "More than one child"
+
+maybeNamedChild :: Monoid m => QName -> (Element -> Either String m)
+    -> Element -> Either String m
+maybeNamedChild n f e = case findChildren n e of
+    []  -> pure mempty
+    [c] -> f c
+    _   -> Left $ "More than one child with name " ++ showQName n
+
+singleGLChild :: GLXml t => Element -> Either String t
+singleGLChild = singleChild >=> fromGLXml
+
+singleNamedChild :: QName -> Element -> Either String Element
+singleNamedChild q e = case findChildren q e of
+    [c] -> pure c
+    []  -> Left $ "No child with name " ++ showQName q
+    _   -> Left $ "More than one child with name " ++ showQName q
+
+oneGLChild :: GLXml t => Element -> Either String t
+oneGLChild e = case rights . map fromGLXml $ elChildren e of
+    [c] -> pure c
+    []  -> Left "No correct GLXml child"
+    _   -> Left "More than one correct GLXml child"
 
 guardName :: QName -> (Element -> Either String t) -> Element -> Either String t
 guardName n f e = 
