@@ -88,6 +88,7 @@ instance GLXml ModuleType where
         VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ show vendor]
         Compatibility       -> node "compatibility" ()
         Internal            -> node "internal" ()
+      where
     fromGLXml e = case elName e of
         "core"          ->
             CoreInterface

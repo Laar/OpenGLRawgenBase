@@ -4,12 +4,17 @@ module Language.OpenGLRaw.Base (
 
     Major, Minor, Deprecated,
 
-    Category(..), Extension(..),
+    Category(..), CompExtension, VendorName(..),
+    showCompExtension,
     showCategory,
 ) where
 
+import Control.Arrow(first)
+
 import Language.Haskell.Exts.Syntax(Name(..))
-import Text.OpenGL.Spec(Category(..), Extension(..), showCategory)
+-- import Text.OpenGL.Spec(Category(..), Extension(..), showCategory)
+
+import Text.OpenGL
 
 -- | The original name of something from OpenGL (thus the name as used in the
 -- specification).
@@ -29,6 +34,33 @@ data ValueType
     | BitfieldValue
     deriving (Eq, Ord, Show)
 
+-- TODO: this is legacy code
+newtype CompExtension = CE VendorName
+    deriving (Eq, Ord)
+
+showCompExtension :: CompExtension -> String
+showCompExtension (CE (VendorName n)) = n
+
+instance Show CompExtension where
+    show = showCompExtension
+instance Read CompExtension where
+    readsPrec i s = map (first $ CE . VendorName) $ readsPrec i s
+
+data Category
+    = CompVersion Int Int Bool
+    | CompExtension CompExtension String Bool
+    | CompName String
+    deriving (Eq, Ord)
+
+showCategory :: Category -> String
+showCategory c = case c of
+    CompVersion ma mi dep
+        -> "VERSION_" ++ show ma ++ "_" ++ show mi ++ if dep then "_COMPATIBILITY" else []
+    CompExtension vendor name dep
+        -> show vendor ++ "_" ++ name ++ if dep then "_COMPATIBILITY" else []
+    CompName name
+        -> name
+
 -- | Major version number of OpenGL
 type Major = Int
 -- | Minor version number of OpenGL
@@ -41,11 +73,11 @@ data ModuleType
     -- | A module defining one of the Core profiles
     = CoreInterface Major Minor Deprecated
     -- | A module defining an extension
-    | ExtensionMod  Extension String Deprecated
+    | ExtensionMod  CompExtension String Deprecated
     -- | A grouping module not tied to a specific `Extension` (Vendor)
     | TopLevelGroup
     -- | A grouping module for a specific `Extension` (Vendor)
-    | VendorGroup   Extension
+    | VendorGroup   CompExtension
     -- | A module for compatibility between OpenGLRaw versions.
     | Compatibility
     -- | A module for internal use.
