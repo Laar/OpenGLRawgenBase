@@ -4,7 +4,7 @@ module Language.OpenGLRaw.Base (
 
     Major, Minor, Deprecated,
 
-    Category(..), CompExtension, VendorName(..),
+    Category(..), CompExtension(..), VendorName(..),
     showCompExtension,
     showCategory,
 ) where
