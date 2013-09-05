@@ -5,11 +5,9 @@ module Language.OpenGLRaw.Base (
     Major, Minor, Deprecated,
 
     Category(..), CompExtension(..), VendorName(..),
-    showCompExtension,
+    showCompExtension, readCompExtension,
     showCategory,
 ) where
-
-import Control.Arrow(first)
 
 import Language.Haskell.Exts.Syntax(Name(..))
 -- import Text.OpenGL.Spec(Category(..), Extension(..), showCategory)
@@ -40,11 +38,8 @@ newtype CompExtension = CE VendorName
 
 showCompExtension :: CompExtension -> String
 showCompExtension (CE (VendorName n)) = n
-
-instance Show CompExtension where
-    show = showCompExtension
-instance Read CompExtension where
-    readsPrec i s = map (first $ CE . VendorName) $ readsPrec i s
+readCompExtension :: String -> CompExtension
+readCompExtension = CE . VendorName
 
 data Category
     = CompVersion Int Int Bool
@@ -57,7 +52,7 @@ showCategory c = case c of
     CompVersion ma mi dep
         -> "VERSION_" ++ show ma ++ "_" ++ show mi ++ if dep then "_COMPATIBILITY" else []
     CompExtension vendor name dep
-        -> show vendor ++ "_" ++ name ++ if dep then "_COMPATIBILITY" else []
+        -> showCompExtension vendor ++ "_" ++ name ++ if dep then "_COMPATIBILITY" else []
     CompName name
         -> name
 
@@ -82,7 +77,7 @@ data ModuleType
     | Compatibility
     -- | A module for internal use.
     | Internal
-    deriving(Eq, Ord, Show)
+    deriving(Eq, Ord)
 
 -- | Simple typing, sufficient for OpenGL functions.
 data FType

@@ -80,12 +80,12 @@ instance GLXml ModuleType where
                 ]
         ExtensionMod vendor name d ->
             node "extension"
-                [ Attr "vendor"     $ show vendor
+                [ Attr "vendor"     $ showCompExtension vendor
                 , Attr "name"       $ name
                 , Attr "deprecated" $ show d
                 ]
         TopLevelGroup       -> node "toplevelgroup" ()
-        VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ show vendor]
+        VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ showCompExtension vendor]
         Compatibility       -> node "compatibility" ()
         Internal            -> node "internal" ()
       where
@@ -97,11 +97,11 @@ instance GLXml ModuleType where
             <*> findReadAttr "deprecated" e
         "extension"     ->
             ExtensionMod
-            <$> findReadAttr "vendor" e
+            <$> (readCompExtension <$> findAttr' "vendor" e)
             <*> findAttr' "name" e
             <*> findReadAttr "deprecated" e
         "toplevelgroup" -> pure TopLevelGroup
-        "vendorgroup"   -> VendorGroup <$> findReadAttr "vendor" e
+        "vendorgroup"   -> VendorGroup . readCompExtension <$> findAttr' "vendor" e
         "compatibility" -> pure Compatibility
         "internal"      -> pure Internal
         n               -> Left $ "Not an ModuleType: " ++ showQName n
