@@ -72,39 +72,46 @@ listedGLUnder n f e = listedUnder n (fmap f . fromGLXml) e
 
 instance GLXml ModuleType where
     toGLXml mt = case mt of
-        CoreInterface ma mi d ->
+        CoreInterface ma mi prof ->
             node "core"
                 [ Attr "major"      $ show ma
                 , Attr "minor"      $ show mi
-                , Attr "deprecated" $ show d
+                , Attr "profile"    $ showProfile prof
                 ]
-        ExtensionMod vendor name d ->
+        ExtensionMod vendor name prof ->
             node "extension"
-                [ Attr "vendor"     $ showCompExtension vendor
+                [ Attr "vendor"     $ vendorName vendor
                 , Attr "name"       $ name
-                , Attr "deprecated" $ show d
+                , Attr "profile"    $ showProfile prof
                 ]
         TopLevelGroup       -> node "toplevelgroup" ()
-        VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ showCompExtension vendor]
+        VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ vendorName vendor]
         Compatibility       -> node "compatibility" ()
         Internal            -> node "internal" ()
       where
+        showProfile p = case p of
+            DefaultProfile -> "default"
+            ProfileName n  -> n
     fromGLXml e = case elName e of
         "core"          ->
             CoreInterface
             <$> findReadAttr "major" e
             <*> findReadAttr "minor" e
-            <*> findReadAttr "deprecated" e
+            <*> (readProfile <$> findAttr' "profile" e)
         "extension"     ->
             ExtensionMod
-            <$> (readCompExtension <$> findAttr' "vendor" e)
+            <$> (Vendor <$> findAttr' "vendor" e)
             <*> findAttr' "name" e
-            <*> findReadAttr "deprecated" e
+            <*> (readProfile <$> findAttr' "profile" e)
         "toplevelgroup" -> pure TopLevelGroup
-        "vendorgroup"   -> VendorGroup . readCompExtension <$> findAttr' "vendor" e
+        "vendorgroup"   -> VendorGroup . Vendor <$> findAttr' "vendor" e
         "compatibility" -> pure Compatibility
         "internal"      -> pure Internal
         n               -> Left $ "Not an ModuleType: " ++ showQName n
+      where
+        readProfile s = case s of
+            "default"   -> DefaultProfile
+            _           -> ProfileName s
 
 instance GLXml FuncI where
     toGLXml (FuncI gln hsn rt ats) =
