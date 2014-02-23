@@ -17,7 +17,6 @@ library
   -- other-modules:
   build-depends:
     base >= 4,
-    opengl-api,
     haskell-src-exts
   ghc-options: -Wall -O2
   hs-source-dirs: src

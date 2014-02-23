@@ -1,5 +1,5 @@
 name:                OpenGLRawInterface
-version:             0.1.0.0
+version:             0.2.0.0
 synopsis:            Interface file for OpenGLRaw
 -- description:
 license:             BSD3
@@ -23,7 +23,7 @@ library
     containers,
     OpenGLRawgenBase,
     haskell-src-exts,
-    xml,
+    hxt,
     filepath,
     directory,
     mtl

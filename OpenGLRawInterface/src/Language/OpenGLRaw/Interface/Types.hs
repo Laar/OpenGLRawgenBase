@@ -17,7 +17,7 @@ import Language.OpenGLRaw.Base
 data OpenGLRawI
     = OpenGLRawI
     { rawMods :: Map ModuleName ModuleType
-    } deriving (Show)
+    } deriving ()
 
 data ModuleI
     = ModuleI
@@ -26,7 +26,7 @@ data ModuleI
     , modEnums :: S.Set EnumI
     , modFuncs :: S.Set FuncI
     , modReExports :: S.Set Reexport
-    } deriving (Show)
+    } deriving ()
 
 data FuncI = FuncI GLName HSName FType [FType]
     deriving (Eq, Ord, Show)
