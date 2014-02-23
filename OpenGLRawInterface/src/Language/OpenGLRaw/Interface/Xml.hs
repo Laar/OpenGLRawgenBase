@@ -1,240 +1,149 @@
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Language.OpenGLRaw.Interface.Xml (
-    GLXml(..),
 ) where
 
 import Control.Applicative
-import Control.Monad
-import Data.Either
-import qualified Data.Foldable as F
 import qualified Data.Map as M
-import Data.Maybe
-import Data.Monoid
 import qualified Data.Set as S
-import Data.String
-import Text.XML.Light
+import Text.XML.HXT.Core
 
 import Language.OpenGLRaw.Base
 import Language.OpenGLRaw.Interface.Types
 
-class GLXml t where
-    toGLXml   :: t -> Element
-    fromGLXml :: Element -> Either String t
-
--- conveniece instance
-instance IsString QName where
-    fromString = unqual
-
-foldElements :: (F.Foldable f, GLXml l) => QName -> f l -> Element
-foldElements qn = node qn . F.foldMap ((:[]) . toGLXml)
-
-instance GLXml OpenGLRawI where
-    toGLXml (OpenGLRawI mods) =
-        node "rawPackage" $ map moduleElement $ M.toList mods
-        where moduleElement (ModuleName mname, ty)
-                = node "module" ([Attr "name" mname], toGLXml ty)
-    fromGLXml = guardName "rawPackage" $ \e ->
-        pure . OpenGLRawI $ listed moduleElement e
-        where
-            moduleElement :: Element -> Either String (M.Map ModuleName ModuleType)
-            moduleElement = guardName "module" $ \e' ->
-                M.singleton
-                <$> fmap ModuleName (findAttr' "name" e')
-                <*> singleGLChild e'
-
-instance GLXml ModuleI where
-    toGLXml (ModuleI (ModuleName mname) mType enums funcs reexports) =
-        node "module"
-            ([ Attr "name" mname
-             ]
-            ,[ node "moduletype" $ toGLXml mType
-             , foldElements "enums" enums
-             , foldElements "functions" funcs
-             , foldElements "reexports" reexports
-             ])
-    fromGLXml = guardName "module" $ \e ->
-        ModuleI . ModuleName
-        <$> findAttr' "name" e
-        <*> (singleNamedChild "moduletype" e >>= singleGLChild)
-        <*> listedGLUnder "enums"       S.singleton e
-        <*> listedGLUnder "functions"   S.singleton e
-        <*> listedGLUnder "reexports"   S.singleton e
-
-listed :: Monoid m => (Element -> Either String m) -> Element -> m
-listed f = F.fold . rights . map f . elChildren
-
-listedUnder :: Monoid m => QName -> (Element -> Either String m) -> Element -> Either String m
-listedUnder n f e = maybeNamedChild n (pure . listed f) e
-
-listedGLUnder :: (Monoid m, GLXml t) => QName -> (t -> m) -> Element -> Either String m
-listedGLUnder n f e = listedUnder n (fmap f . fromGLXml) e
-
-instance GLXml ModuleType where
-    toGLXml mt = case mt of
-        CoreInterface ma mi prof ->
-            node "core"
-                [ Attr "major"      $ show ma
-                , Attr "minor"      $ show mi
-                , Attr "profile"    $ showProfile prof
-                ]
-        ExtensionMod vendor name prof ->
-            node "extension"
-                [ Attr "vendor"     $ vendorName vendor
-                , Attr "name"       $ name
-                , Attr "profile"    $ showProfile prof
-                ]
-        TopLevelGroup       -> node "toplevelgroup" ()
-        VendorGroup vendor  -> node "vendorgroup" [Attr "vendor" $ vendorName vendor]
-        Compatibility       -> node "compatibility" ()
-        Internal            -> node "internal" ()
+instance XmlPickler OpenGLRawI where
+    xpickle = xpElem "rawPackage"
+        $ xpWrap (OpenGLRawI, \(OpenGLRawI mods) -> mods)
+        $ xpMapPair xpModule
       where
-        showProfile p = case p of
-            DefaultProfile -> "default"
-            ProfileName n  -> n
-    fromGLXml e = case elName e of
-        "core"          ->
-            CoreInterface
-            <$> findReadAttr "major" e
-            <*> findReadAttr "minor" e
-            <*> (readProfile <$> findAttr' "profile" e)
-        "extension"     ->
-            ExtensionMod
-            <$> (Vendor <$> findAttr' "vendor" e)
-            <*> findAttr' "name" e
-            <*> (readProfile <$> findAttr' "profile" e)
-        "toplevelgroup" -> pure TopLevelGroup
-        "vendorgroup"   -> VendorGroup . Vendor <$> findAttr' "vendor" e
-        "compatibility" -> pure Compatibility
-        "internal"      -> pure Internal
-        n               -> Left $ "Not an ModuleType: " ++ showQName n
+        xpModule = xpElem "module"
+            $ xpPair
+                (xpModuleName "name")
+                xpickle
+
+instance XmlPickler ModuleI where
+    xpickle = xpElem "module"
+        $ xpWrap (\(mn, mty, enums, funcs, reexports) -> ModuleI mn mty enums funcs reexports,
+                \(ModuleI mn mty enums funcs reexports) -> (mn, mty, enums, funcs, reexports))
+        $ xp5Tuple
+            (xpModuleName "name")
+            (xpElem "moduletype" xpickle)
+            (xpElem "enums"     $ xpSet xpickle)
+            (xpElem "functions" $ xpSet xpickle)
+            (xpElem "reexports" $ xpSet xpickle)
+
+xpSet :: Ord a => PU a -> PU (S.Set a)
+xpSet = xpWrap (S.fromList, S.toList) . xpList
+xpMapPair :: Ord k => PU (k,v) -> PU (M.Map k v)
+xpMapPair = xpWrap (M.fromList, M.toList) . xpList
+
+instance XmlPickler ModuleType where
+    xpickle = xpAlt tag ps
       where
-        readProfile s = case s of
-            "default"   -> DefaultProfile
-            _           -> ProfileName s
-
-instance GLXml FuncI where
-    toGLXml (FuncI gln hsn rt ats) =
-        node "function"
-            ([ glNameAttr gln
-             , hsNameAttr hsn
-             ]
-            ,[ node "return" $ toGLXml rt
-             , node "arguments" $ map toGLXml ats
-             ])
-    fromGLXml = guardName "function" $ \e ->
-        FuncI
-        <$> findGLName e
-        <*> findHSName e
-        <*> (singleNamedChild "return" e >>= oneGLChild)
-        <*> listedGLUnder "arguments" (:[]) e
-
-instance GLXml EnumI where
-    toGLXml (EnumI gln hsn vt) =
-        node "enum"
-            [ glNameAttr gln
-            , hsNameAttr hsn
-            , Attr "valuetype" $ valueTypeToString vt
+        tag mt = case mt of
+            CoreInterface _ _ _ -> 0
+            ExtensionMod  _ _ _ -> 1
+            TopLevelGroup       -> 2
+            VendorGroup   _     -> 3
+            Compatibility       -> 4
+            Internal            -> 5
+        ps =
+            [ xpCore
+            , xpExtension
+            , xpElem "toplevelgroup" $ xpLift TopLevelGroup
+            , xpElem "vendorgroup" 
+                $ xpWrap (VendorGroup, \(VendorGroup v) -> v) 
+                $ xpVendor
+            , xpElem "compatibility" $ xpLift Compatibility
+            , xpElem "internal"      $ xpLift Internal
             ]
-    fromGLXml = guardName "enum" $ \e ->
-        EnumI
-        <$> findGLName e
-        <*> findHSName e
-        <*> (findAttr' "valuetype" e >>= stringToValueType)
+        xpCore = xpElem "core"
+            $ xpWrap (uncurry3 CoreInterface,
+                    \(CoreInterface ma mi p)  -> (ma, mi, p))
+            $ xpTriple
+                (xpAttr "major" xpickle)
+                (xpAttr "minor" xpickle)
+                xpProfile
+        xpExtension = xpElem "extension"
+            $ xpWrap (uncurry3 ExtensionMod, \(ExtensionMod v n p) -> (v, n, p))
+            $ xpTriple
+                xpVendor
+                (xpTextAttr "name")
+                xpProfile
+        xpProfile :: PU Profile                
+        xpProfile = xpWrap (p, up) $ xpTextAttr "profile"
+          where
+            up prof = case prof of
+                DefaultProfile  -> "default"
+                ProfileName n   -> n
+            p s = case s of
+                "default"   -> DefaultProfile
+                n           -> ProfileName n
+        xpVendor :: PU Vendor
+        xpVendor = xpWrap (Vendor, vendorName) $ xpTextAttr "vendor"
 
-valueTypeToString :: ValueType -> String
-valueTypeToString vt = case vt of
-    EnumValue       -> "enum"
-    BitfieldValue   -> "bitfield"
-stringToValueType :: String -> Either String ValueType
-stringToValueType s = case s of
-    "enum"      -> pure EnumValue
-    "bitfield"  -> pure BitfieldValue
-    _           -> Left $ "Invalid valuetype " ++ s
+instance XmlPickler FuncI where
+    xpickle = xpElem "function"
+        $ xpWrap (uncurry4 FuncI, \(FuncI gln hsn rt ats) -> (gln, hsn, rt, ats))
+        $ xp4Tuple
+            xpGLName
+            xpHSName
+            (xpElem "return" $ xpickle)
+            (xpElem "arguments" $ xpList xpickle)
 
-instance GLXml Reexport where
-    toGLXml r = case r of
-        SingleExport (ModuleName m) gln ->
-            node "sreexport"
-                [ Attr "module" m
-                , glNameAttr gln
-                ]
-        ModuleExport (ModuleName m) ->
-            node "mreexport"
-                [ Attr "module" m
-                ]
-    fromGLXml e = case elName e of
-        "sreexport" -> SingleExport . ModuleName
-                <$> findAttr' "module" e
-                <*> findGLName e
-        "mreexport" -> ModuleExport . ModuleName <$> findAttr' "module" e
-        _           -> Left "No Reexport element"
+instance XmlPickler EnumI where
+    xpickle = xpElem "enum"
+        $ xpWrap (uncurry3 EnumI, \(EnumI gln hsn vt) -> (gln, hsn, vt))
+        $ xpTriple
+            xpGLName
+            xpHSName
+            xpValueType
+      where
+        xpValueType = xpWrapEither (stringToValueType, valueTypeToString)
+                        $ xpTextAttr "valuetype"
+        valueTypeToString :: ValueType -> String
+        valueTypeToString vt = case vt of
+            EnumValue       -> "enum"
+            BitfieldValue   -> "bitfield"
+        stringToValueType :: String -> Either String ValueType
+        stringToValueType s = case s of
+            "enum"      -> pure EnumValue
+            "bitfield"  -> pure BitfieldValue
+            _           -> Left $ "Invalid valuetype " ++ s
+instance XmlPickler Reexport where
+    xpickle = xpAlt tag ps
+      where
+        tag r = case r of
+            SingleExport _ _    -> 0
+            ModuleExport _      -> 1
+        ps =
+            [ xpWrap (uncurry SingleExport, \(SingleExport m gln) -> (m, gln))
+                $ xpElem "sreexport"
+                $ xpPair
+                    (xpModuleName "module")
+                    xpGLName
+            , xpWrap (ModuleExport, \(ModuleExport m) -> m)
+                $ xpElem "mreexport"
+                $ xpModuleName "module"
+            ]
 
-instance GLXml FType where
-    toGLXml ft = case ft of
-        TCon s      -> node "con" [Attr "name" s]
-        TVar        -> node "var" ()
-        TPtr p      -> node "ptr" $ toGLXml p
-        UnitTCon    -> node "unit" ()
-    fromGLXml e = case elName e of
-        "con"   -> TCon <$> findAttr' "name" e
-        "var"   -> pure TVar
-        "ptr"   -> TPtr <$> oneGLChild e
-        "unit"  -> pure UnitTCon
-        _       -> Left "No FType element"
 
-findGLName :: Element -> Either String GLName
-findGLName e = GLName <$> findAttr' "glname" e
-findHSName :: Element -> Either String HSName
-findHSName e = Ident <$> findAttr' "hsname" e
-glNameAttr :: GLName -> Attr
-glNameAttr gln = Attr "glname" $ unGLName gln
-hsNameAttr :: HSName -> Attr
-hsNameAttr = Attr "hsname" . unHSName
-
-singleChild :: Element -> Either String Element
-singleChild e = case elChildren e of
-    [c] -> pure c
-    []  -> Left "No children"
-    _   -> Left "More than one child"
-
-maybeNamedChild :: Monoid m => QName -> (Element -> Either String m)
-    -> Element -> Either String m
-maybeNamedChild n f e = case findChildren n e of
-    []  -> pure mempty
-    [c] -> f c
-    _   -> Left $ "More than one child with name " ++ showQName n
-
-singleGLChild :: GLXml t => Element -> Either String t
-singleGLChild = singleChild >=> fromGLXml
-
-singleNamedChild :: QName -> Element -> Either String Element
-singleNamedChild q e = case findChildren q e of
-    [c] -> pure c
-    []  -> Left $ "No child with name " ++ showQName q
-    _   -> Left $ "More than one child with name " ++ showQName q
-
-oneGLChild :: GLXml t => Element -> Either String t
-oneGLChild e = case rights . map fromGLXml $ elChildren e of
-    [c] -> pure c
-    []  -> Left "No correct GLXml child"
-    _   -> Left "More than one correct GLXml child"
-
-guardName :: QName -> (Element -> Either String t) -> Element -> Either String t
-guardName n f e = 
-    if (elName e == n) 
-        then f e
-        else Left $ "Not an " ++ showQName n
-
-findAttr' :: QName -> Element -> Either String String
-findAttr' q = 
-    liftMaybe ("Attribute " ++ showQName q ++ " not found") . findAttr q
-
-findReadAttr :: Read r => QName -> Element -> Either String r
-findReadAttr n e = findAttr' n e >>= tryRead
-
-tryRead :: Read a => String -> Either String a
-tryRead = liftMaybe "Reader failed". fmap fst . listToMaybe . reads
-
-liftMaybe :: String -> Maybe t -> Either String t
-liftMaybe msg = maybe (Left msg) pure
+instance XmlPickler FType where
+    xpickle = xpAlt tag ps
+      where
+        tag (TCon _) = 0
+        tag TVar     = 1
+        tag (TPtr _) = 2
+        tag UnitTCon = 3
+        ps =
+            [ xpElem "con"  $ xpWrap (TCon, \(TCon t) -> t) $ xpTextAttr "name"
+            , xpElem "var"  $ xpLift TVar
+            , xpElem "ptr"  $ xpWrap (TPtr, \(TPtr p) -> p) xpickle
+            , xpElem "unit" $ xpLift UnitTCon
+            ]
+xpModuleName :: String -> PU ModuleName
+xpModuleName = xpWrap (ModuleName, \(ModuleName m) -> m) . xpTextAttr
+xpGLName :: PU GLName
+xpGLName = xpWrap (GLName, unGLName) $ xpTextAttr "glname"
+xpHSName :: PU HSName
+xpHSName = xpWrap (Ident, unHSName) $ xpTextAttr "hsname"

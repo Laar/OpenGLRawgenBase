@@ -5,32 +5,30 @@ module Language.OpenGLRaw.Interface.Serialize (
 
 import System.Directory
 import System.FilePath
-import Text.XML.Light
+import Text.XML.HXT.Core
 
 import Language.OpenGLRaw.Interface.Types
-import Language.OpenGLRaw.Interface.Xml
+import Language.OpenGLRaw.Interface.Xml()
 
 writePackage :: FilePath -> OpenGLRawI -> IO ()
 writePackage path package =
     let path' = packageFile path
-        xmlPackage = toGLXml package
-    in safeWriteFile path' $ ppTopElement xmlPackage
+    in writeXmlFile path' package
 
 writeModule :: FilePath -> ModuleI -> IO ()
 writeModule path m =
     let path' = moduleFile (modName m) path
-        xmlModule = toGLXml m
-    in safeWriteFile path' $ ppTopElement xmlModule
+    in writeXmlFile path' m
 
 readPackage :: FilePath -> IO (Either String OpenGLRawI)
 readPackage fp =
     let path = packageFile fp
-    in parse `fmap` readFile path
+    in parseFile path
 
 readModule :: FilePath -> ModuleName -> IO (Either String ModuleI)
 readModule fp mn =
     let path = moduleFile mn fp
-    in parse `fmap` readFile path
+    in parseFile path
 
 packageFile :: FilePath -> FilePath
 packageFile fp = fp </> "package" <.> "xml"
@@ -38,10 +36,35 @@ packageFile fp = fp </> "package" <.> "xml"
 moduleFile :: ModuleName -> FilePath -> FilePath
 moduleFile mn fp = fp </> "modules" </> moduleNameToPath mn <.> "xml"
 
-parse :: GLXml t => String -> Either String t
-parse s = case parseXMLDoc s of
-    Nothing -> Left "Xml parsing failed"
-    Just r  -> fromGLXml r
+parseFile :: XmlPickler xml => FilePath -> IO (Either String xml)
+parseFile fp = do
+    results <- runX (
+        readDocument readOpts fp 
+            >>> removeAllWhiteSpace
+            >>> removeAllComment
+            >>> arr (unpickleDoc' xpickle)
+     )
+    return $ handleResults results
+  where
+    readOpts :: [SysConfig]
+    readOpts = [withValidate no, withPreserveComment no]
+    handleResults rs = case rs of
+        []      -> Left "No parse"
+        (_:_:_) -> Left "Multiple parse"
+        [rc]    -> rc
+
+writeXmlFile :: XmlPickler xml => FilePath -> xml -> IO ()
+writeXmlFile fp xml = do
+    createDirectoryIfMissing True (dropFileName fp) 
+    _ <- runX (
+        constA (pickleDoc xpickle xml) >>> writeDocument writeOpts fp
+     )
+    return ()
+  where
+    writeOpts :: [SysConfig]
+    writeOpts =
+        [ withIndent yes
+        ]
 
 -- copy from CodeGenerating
 -- | Converts the module name to the path of it's source code.
@@ -50,8 +73,3 @@ moduleNameToPath (ModuleName n) = foldr replace [] n
     where
         replace '.' p = pathSeparator : p
         replace c p = c : p
-
--- copy from OpenGLRawgen
-safeWriteFile :: FilePath -> String -> IO ()
-safeWriteFile fp fc = createDirectoryIfMissing True (dropFileName fp)
-     >> writeFile fp fc

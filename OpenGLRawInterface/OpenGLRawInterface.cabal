@@ -22,7 +22,7 @@ library
     containers,
     OpenGLRawgenBase,
     haskell-src-exts,
-    xml,
+    hxt,
     filepath,
     directory
   ghc-options:
