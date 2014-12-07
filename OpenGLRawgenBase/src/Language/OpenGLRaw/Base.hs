@@ -48,6 +48,8 @@ profileTokenSuffix p = case p of
     DefaultProfile -> ""
     ProfileName n  -> '_': map toUpper n
 
+-- | Defines a specific version of OpenGL or a single extension to it. These
+-- form the smallest sets of functionality (or extension of it) of OpenGL.
 data Category
     = Version Int Int Profile
     | Extension Vendor String Profile
@@ -73,9 +75,9 @@ data ModuleType
     = CoreInterface Major Minor Profile
     -- | A module defining an extension
     | ExtensionMod  Vendor String Profile
-    -- | A grouping module not tied to a specific `Extension` (Vendor)
+    -- | A grouping module not tied to a specific `Vendor`
     | TopLevelGroup
-    -- | A grouping module for a specific `Extension` (Vendor)
+    -- | A grouping module for a specific `Vendor`
     | VendorGroup   Vendor
     -- | A module for compatibility between OpenGLRaw versions.
     | Compatibility
