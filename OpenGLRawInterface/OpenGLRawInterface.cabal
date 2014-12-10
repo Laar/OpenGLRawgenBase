@@ -13,6 +13,7 @@ cabal-version:       >=1.8
 
 library
   exposed-modules:
+    Language.OpenGLRaw.Interface.Query
     Language.OpenGLRaw.Interface.Types
     Language.OpenGLRaw.Interface.Xml
     Language.OpenGLRaw.Interface.Serialize
