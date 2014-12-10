@@ -1,7 +1,11 @@
 module Language.OpenGLRaw.Interface.Serialize (
     writePackage, writeModule,
     readPackage, readModule,
+    readPackageModules,
 ) where
+
+import Control.Applicative
+import qualified Data.Map as M
 
 import System.Directory
 import System.FilePath
@@ -29,6 +33,19 @@ readModule :: FilePath -> ModuleName -> IO (Either String ModuleI)
 readModule fp mn =
     let path = moduleFile mn fp
     in parseFile path
+
+readPackageModules :: FilePath -> IO (Either String (OpenGLRawI, [ModuleI]))
+readPackageModules fp = do
+    epkg <- readPackage fp
+    case epkg of
+        Left e -> return $ Left e
+        Right pkg -> fmap ((,) pkg) <$> (readModules . M.keys . rawMods $ pkg)
+  where
+    readModules :: [ModuleName] -> IO (Either String [ModuleI])
+    readModules []     = return $ Right []
+    readModules (m:ms) = readModule fp m >>= \em -> case em of
+            Left e -> return $ Left e
+            Right modu -> either (Left) (Right . (modu:)) `fmap` readModules ms
 
 packageFile :: FilePath -> FilePath
 packageFile fp = fp </> "package" <.> "xml"
