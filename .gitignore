@@ -11,3 +11,7 @@ Setup
 *~
 *.swp
 cabal-dev
+.cabal-sandbox
+cabal.sandbox.config
+# For testing against the generated interface.
+OpenGLRawInterface/interface
